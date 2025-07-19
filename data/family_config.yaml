@@ -1,0 +1,43 @@
+families:
+  JJ:
+    adults: 2
+    devices:
+      - number: "4102272625"
+        kind: voice
+      - number: "2012904373"
+        kind: voice
+  KS:
+    adults: 2
+    devices:
+      - number: "2405844111"
+        kind: voice
+      - number: "4433266326"
+        kind: voice
+      - number: "4437410790"
+        kind: voice
+      - number: "4129158801"
+        kind: voice
+      - number: "2409885184"
+        kind: voice  
+      - number: "2409883906"
+        kind: voice  
+      - number: "8573403847"
+        kind: wearable
+      - number: "8575767313"
+        kind: wearable
+      - number: "8574217942"
+        kind: connected
+  DJ:
+    adults: 2
+    devices:
+      - number: "3014528244"
+        kind: voice
+  RE:
+    adults: 2
+    devices:
+      - number: "2022586292"
+        kind: voice
+      - number: "9179125315"
+        kind: voice
+      - number: "3476366212"
+        kind: wearable

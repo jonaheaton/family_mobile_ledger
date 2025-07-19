@@ -1,0 +1,7 @@
+# Core runtime dependencies
+pdfplumber>=0.10      # PDF text extraction used by bill_parser.py
+click>=8.1            # Command-line interface (cli.py)
+PyYAML>=6.0           # family_config.yaml loader (config.py)
+pandas>=2.0           # reading & writing the ledger CSV (ledger_updater.py)
+
+# pdfplumber pulls in pdfminer.six automatically
