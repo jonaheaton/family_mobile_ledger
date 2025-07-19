@@ -9,12 +9,14 @@ from family_mobile_ledger import bill_parser
 
 def _project_root() -> Path:
     """Return the project root assuming tests/ is a direct child."""
+    return Path(__file__).resolve().parent
     return Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture(scope="session")
 def june_pdf() -> Path:
-    pdf_path = _project_root() / "SummaryBillJun2025.pdf"
+    pdf_path = '/Users/jonaheaton/Documents/family_mobile_ledger/SummaryBillJun2025.pdf'
+    # pdf_path = _project_root() / "SummaryBillJun2025.pdf"
     assert pdf_path.exists(), f"Fixture PDF not found at {pdf_path}"
     return pdf_path
 

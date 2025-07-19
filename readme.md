@@ -82,3 +82,9 @@ A road‑map of next iterations, with concrete implementation notes.
 | 🔹 | **CI & lint** | • Add GitHub Actions workflow: matrix on `python‑version: [3.11]` → `pytest -q` and `ruff check .`; • Fail build if coverage < 80 %. |
 | 🔹 | **Docker image** | • Create `Dockerfile` based on `python:3.11-slim`, copy code, run `pip install -r requirements.txt`; • Entry‑point `CMD ["family-mobile-ledger", "--help"]`. |
 | 🔹 | **Extended docs** | • Split README into **Usage**, **Developer guide**, **Contributing** in `docs/` folder; • Add architecture diagram (draw.io PNG) and link from README. |
+
+## 🧪 Testing
+
+```
+PYTHONPATH=/Users/jonaheaton/Documents/family_mobile_ledger pytest -q
+```

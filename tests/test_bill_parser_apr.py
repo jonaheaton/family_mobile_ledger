@@ -1,5 +1,5 @@
 
-
+# %%
 """
 Tests for parsing the April 2025 T‑Mobile bill.
 
@@ -22,12 +22,14 @@ from family_mobile_ledger import bill_parser
 # --------------------------------------------------------------------------- #
 def _project_root() -> Path:
     """Return the project root assuming tests/ is a direct child."""
+    return Path(__file__).resolve().parent
     return Path(__file__).resolve().parent.parent
-
 
 @pytest.fixture(scope="session")
 def april_pdf() -> Path:
-    pdf_path = _project_root() / "SummaryBillApr2025.pdf"
+    pdf_path = '/Users/jonaheaton/Documents/family_mobile_ledger/SummaryBillApr2025.pdf'
+    # pdf_path = _project_root() / "SummaryBillApr2025.pdf"
+    print(f"Using fixture PDF at {pdf_path}")
     assert pdf_path.exists(), f"Fixture PDF not found at {pdf_path}"
     return pdf_path
 
