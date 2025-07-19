@@ -53,9 +53,8 @@ def test_cycle_dates(june_pdf):
 
     # Cycle window appears as "Jun 04 - Jul 03" (see page 2),
     # so start = 2025‑06‑04, end = 2025‑07‑03
-    # these tests are failing, unclear why
-    # assert bill.cycle_start == date(2025, 6, 4)
-    # assert bill.cycle_end == date(2025, 7, 3)
+    assert bill.cycle_start == date(2025, 6, 4)
+    assert bill.cycle_end == date(2025, 7, 3)
 
     # Sanity check: cycle_end must be after cycle_start
     assert bill.cycle_end > bill.cycle_start
