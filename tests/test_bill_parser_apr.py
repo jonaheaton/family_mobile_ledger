@@ -27,7 +27,7 @@ def _project_root() -> Path:
 
 @pytest.fixture(scope="session")
 def april_pdf() -> Path:
-    pdf_path = '/Users/jonaheaton/Documents/family_mobile_ledger/SummaryBillApr2025.pdf'
+    pdf_path = Path('/Users/jonaheaton/Documents/family_mobile_ledger/SummaryBillApr2025.pdf')
     # pdf_path = _project_root() / "SummaryBillApr2025.pdf"
     print(f"Using fixture PDF at {pdf_path}")
     assert pdf_path.exists(), f"Fixture PDF not found at {pdf_path}"
