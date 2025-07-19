@@ -36,9 +36,15 @@ def parse_bill(pdf_path: Path) -> BillTotals:
 
     issue_date: date = datetime.strptime(issue_match.group(1), "%b %d, %Y").date()
 
-    # Cycle window  e.g. "between Feb 04 and Mar 03"
-    # Cycle window appears as "Jun 04 - Jul 03"
-    cycle_match = re.search(r'(?:between\s+)?([A-Za-z]{3}\s+\d{2})\s*[-–]\s*([A-Za-z]{3}\s+\d{2})', text, re.IGNORECASE)
+    # Cycle window: look for the explicit “bill period” phrase first
+    cycle_match = re.search(
+        r'bill period\s+([A-Za-z]{3}\s+\d{2})\s*[-–]\s*([A-Za-z]{3}\s+\d{2})',
+        text, re.I)
+    if not cycle_match:
+        cycle_match = re.search(
+            r'(?:between\s+)?([A-Za-z]{3}\s+\d{2})\s*[-–]\s*([A-Za-z]{3}\s+\d{2})',
+            text, re.I)
+
     if cycle_match:
         start_str, end_str = cycle_match.groups()
         cycle_start = datetime.strptime(f"{start_str} {issue_date.year}", "%b %d %Y").date()
@@ -63,30 +69,38 @@ def parse_bill(pdf_path: Path) -> BillTotals:
     voice_line = re.search(r'VOICE LINES\s*=\s*\$(\d+\.\d{2})', text)
     wear_line  = re.search(r'WEARABLES\s*=\s*\$(\d+\.\d{2})', text)
     conn_line  = re.search(r'CONNECTED DEVICE\S*\s*=\s*\$(\d+\.\d{2})', text)
-    netflix    = re.search(r'Netflix.*?(\$?\d+\.\d{2})', text)
+    # Netflix – prefer the amount that appears inside the “REGULAR CHARGES” block
+    netflix = re.search(r'Regular\s+Charges.*?Netflix.*?\$(\d+\.\d{2})',
+                        text, re.S | re.I)
+    if not netflix:
+        # Fallback to first any‑where match (old behaviour)
+        netflix = re.search(r'Netflix.*?\$(\d+\.\d{2})', text, re.I)
 
     # ------------------------------------------------------------------
     # equipment charges – robust section‑based parsing (page 3)
     # ------------------------------------------------------------------
     equip: dict[str, Decimal] = {}
+    # Pull text from the first page that contains "EQUIPMENT $"
+    equip_page_text = ""
     try:
         with pdfplumber.open(pdf_path) as _pdf:
-            if len(_pdf.pages) >= 3:
-                page3_text = _pdf.pages[2].extract_text()  # page index starts at 0
-            else:
-                page3_text = ""
+            for p in _pdf.pages:
+                t = p.extract_text()
+                if 'EQUIPMENT $' in t:
+                    equip_page_text = t
+                    break
     except Exception:
-        page3_text = ""
+        pass
 
     # Locate the EQUIPMENT block between “EQUIPMENT $” and the next ALL‑CAPS heading
     block = ""
-    m_equipment_start = re.search(r'EQUIPMENT\s+\$\d+\.\d{2}', page3_text)
+    m_equipment_start = re.search(r'EQUIPMENT\s+\$\d+\.\d{2}', equip_page_text)
     if m_equipment_start:
         start_pos = m_equipment_start.start()
         # End when we hit the next section header like “SERVICES $” or end of page
-        m_after = re.search(r'\n[A-Z][A-Z &]+\s+\$\d+\.\d{2}', page3_text[m_equipment_start.end():])
-        end_pos = m_equipment_start.end() + (m_after.start() if m_after else len(page3_text))
-        block = page3_text[start_pos:end_pos]
+        m_after = re.search(r'\n[A-Z][A-Z &]+\s+\$\d+\.\d{2}', equip_page_text[m_equipment_start.end():])
+        end_pos = m_equipment_start.end() + (m_after.start() if m_after else len(equip_page_text))
+        block = equip_page_text[start_pos:end_pos]
         print("\n[DEBUG] Extracted EQUIPMENT block (first 300 chars):")
         print(block[:300].replace("\n", "\\n"))
 
@@ -123,20 +137,36 @@ def parse_bill(pdf_path: Path) -> BillTotals:
                     current_num = None  # done with this device
                 # Case 3: promo/credit line – ignore, since net is shown in standalone
                 # You can extend here if future bills omit the standalone amount
-        print(f"[DEBUG] Parsed equipment dict: {equip}")
-        print(f"[DEBUG] Equipment total = {sum(v for v in equip.values() if v is not None)}")
-        # Replace any None placeholders with 0.00
-        for k, v in equip.items():
-            if v is None:
-                equip[k] = Decimal("0.00")
+        # Drop entries that never received a monetary amount
+        equip = {k: v for k, v in equip.items() if v is not None}
     # ------------------------------------------------------------------
 
-    # international/roaming usage
+    # international / roaming / long‑distance usage
     usage = {}
-    for m in re.finditer(r'INTL.*?\((\d{3})[)\s-]*(\d{3})[- ](\d{4}).+?(\$?-?\d+\.\d{2})', text):
-        num = ''.join(m.groups()[:3])
-        amt = _to_money(m.group(4))
+    usage_pattern = re.compile(
+        r'\((\d{3})[)\s-]*(\d{3})[- ](\d{4})'      # phone
+        r'[^\n$]{0,80}?'                            # up to 80 chars, no newline
+        r'\bto\s+[A-Z][A-Z ]{2,}'                   # word “to COUNTRY/AREA”
+        r'[^\n$]{0,80}?'
+        r'\$(\d+\.\d{2})',                          # charge
+        re.I)
+    usage_block = ""
+    m_usage = re.search(r'ONE-TIME CHARGES(.*?)(?:SERVICES|TOTAL DUE)', text, re.S | re.I)
+    if m_usage:
+        usage_block = m_usage.group(1)
+    else:
+        usage_block = text  # fallback
+    for m in usage_pattern.finditer(usage_block):
+        num = ''.join(m.group(i) for i in range(1, 4))
+        amt = Decimal(m.group(4))
         usage[num] = usage.get(num, Decimal(0)) + amt
+
+    netflix_amt = Decimal(netflix.group(1)) if netflix else Decimal(0)
+    if netflix_amt < Decimal("3.00"):
+        # Try to find any larger Netflix charge
+        alt = re.search(r'Netflix.*?\$(\d+\.\d{2})', text, re.I)
+        if alt and Decimal(alt.group(1)) > netflix_amt:
+            netflix_amt = Decimal(alt.group(1))
 
     return BillTotals(
         cycle_start=cycle_start,
@@ -146,7 +176,7 @@ def parse_bill(pdf_path: Path) -> BillTotals:
         voice_subtotal=_to_money(voice_line.group(1)),
         wearable_subtotal=_to_money(wear_line.group(1)) if wear_line else Decimal(0),
         connected_subtotal=_to_money(conn_line.group(1)) if conn_line else Decimal(0),
-        netflix_charge=_to_money(netflix.group(1)) if netflix else Decimal(0),
+        netflix_charge=netflix_amt,
         equipments=equip,
         usage=usage
     )
