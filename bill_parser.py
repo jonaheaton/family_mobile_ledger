@@ -37,11 +37,16 @@ def parse_bill(pdf_path: Path) -> BillTotals:
     issue_date: date = datetime.strptime(issue_match.group(1), "%b %d, %Y").date()
 
     # Cycle window  e.g. "between Feb 04 and Mar 03"
-    cycle_match = re.search(r'between\s+([A-Za-z]{3}\s+\d{2})\s+and\s+([A-Za-z]{3}\s+\d{2})', text, re.IGNORECASE)
+    # Cycle window appears as "Jun 04 - Jul 03"
+    cycle_match = re.search(r'(?:between\s+)?([A-Za-z]{3}\s+\d{2})\s*[-–]\s*([A-Za-z]{3}\s+\d{2})', text, re.IGNORECASE)
     if cycle_match:
         start_str, end_str = cycle_match.groups()
         cycle_start = datetime.strptime(f"{start_str} {issue_date.year}", "%b %d %Y").date()
         cycle_end   = datetime.strptime(f"{end_str} {issue_date.year}", "%b %d %Y").date()
+        
+        # Handle year wraparound (December to January)
+        if cycle_end < cycle_start:
+            cycle_end = datetime.strptime(f"{end_str} {issue_date.year + 1}", "%b %d %Y").date()
     else:
         # Fallback: treat cycle_end as issue_date, assume 1‑month cycle
         cycle_end = issue_date
@@ -60,12 +65,53 @@ def parse_bill(pdf_path: Path) -> BillTotals:
     conn_line  = re.search(r'CONNECTED DEVICE\S*\s*=\s*\$(\d+\.\d{2})', text)
     netflix    = re.search(r'Netflix.*?(\$?\d+\.\d{2})', text)
 
-    # equipment table
+    # equipment charges - parse from the detailed section on page 3
     equip = {}
-    for m in re.finditer(r'\((\d{3})[)\s-]*(\d{3})[- ](\d{4}).+?(\$?-?\d+\.\d{2})', text):
-        number = ''.join(m.groups()[:3])
-        amt = _to_money(m.group(4))
-        equip[number] = equip.get(number, Decimal(0)) + amt
+    with pdfplumber.open(pdf_path) as pdf:
+        if len(pdf.pages) >= 3:
+            text = pdf.pages[2].extract_text()
+            
+            # Find the equipment section
+            equipment_section = None
+            if 'EQUIPMENT $' in text:
+                sections = text.split('\n\n')  # Split on double newlines to separate blocks
+                for section in sections:
+                    if section.strip().startswith('EQUIPMENT $'):
+                        equipment_section = section
+                        break
+            
+            if equipment_section:
+                # Process each line in the equipment section
+                lines = equipment_section.split('\n')
+                current_device = None
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        current_device = None
+                        continue
+                        
+                    # Match device lines that start with a phone number
+                    phone_match = re.search(r'\((\d{3})\)\s*(\d{3})-(\d{4})', line)
+                    if phone_match:
+                        current_device = ''.join(phone_match.groups())
+                        # Look for the amount at the end of this line
+                        amount_match = re.search(r'\$(\d+\.\d{2})\s*$', line)
+                        if amount_match:
+                            equip[current_device] = Decimal(amount_match.group(1))
+                        else:
+                            equip[current_device] = Decimal('0.00')
+                    
+                    # Look for installment amounts and credits
+                    elif current_device:
+                        if 'installment' in line.lower():
+                            amount_match = re.search(r'\$(\d+\.\d{2})', line)
+                            if amount_match:
+                                equip[current_device] = Decimal(amount_match.group(1))
+                        elif '$-' in line:
+                            credit_match = re.search(r'\$-(\d+\.\d{2})', line)
+                            if credit_match:
+                                credit = Decimal(credit_match.group(1))
+                                equip[current_device] -= credit
 
     # international/roaming usage
     usage = {}
