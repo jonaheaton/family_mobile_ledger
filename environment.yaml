@@ -9,3 +9,4 @@ dependencies:
   - pip  # keeps pip available for anything not yet on conda
   - pip:
       - pdfplumber>=0.11.4
+      - pytest
