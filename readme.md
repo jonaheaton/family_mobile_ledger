@@ -34,7 +34,6 @@ family_mobile_ledger/
     └── test_allocator.py     # tests the allocator rules
 ```
 
-
 ## ⏳ Allocation rules
 
 | Rule | Category | Allocation logic |
@@ -47,8 +46,8 @@ family_mobile_ledger/
 | **F** | **One‑time usage charges** | Aggregate all international calling / roaming usage per phone number and charge 100 % of it to that phone’s family. |
 | **Precision & rounding** | – | Keep full‑precision `Decimal` values during calculations. Round to two decimals when writing ledger rows. If rounding introduces a penny drift from any bill subtotal, adjust the final family’s share by that penny so the row matches the bill exactly. |
 
-
 ## 🛠 Installation
+
 ```bash
 # create and activate conda env
 conda env create -f environment.yml
@@ -60,6 +59,7 @@ pip install -e .    # optional editable install for `python -m ...
 ```
 
 ## 🚀 Quick start
+
 ```bash
 # Append Feb 2025 bill rows into the existing CSV
 python -m family_mobile_ledger.cli \
@@ -67,19 +67,18 @@ python -m family_mobile_ledger.cli \
     /path/to/SummaryBillFeb2025.pdf
 ```
 
-
 ## 🔧 To‑do
 
 A road‑map of next iterations, with concrete implementation notes.
 
 | Priority | Task | Detailed steps |
 |----------|------|----------------|
-| 🌟 | **Harden `bill_parser.py`** | • Replace placeholder regexes with deterministic, multi‑line patterns or table parsing using `pdfplumber`’s extracted `page.extract_table()`.<br>• Add unit fixtures: save trimmed text from Dec/Jan/Feb 2025 bills in `tests/fixtures/` and write tests that assert each subtotal, equipment amount, and usage record.<br>• Refactor parsing into helper functions (`_parse_subtotals`, `_parse_equipment`, `_parse_usage`) so they can be unit‑tested in isolation. |
-| 🌟 | **Penny‑adjust rounding** | • After `allocator.allocate` builds per‑category buckets, sum the *rounded* values and compare to the source subtotal.<br>• If off by ≥ ¥0.01, bump the family with the largest share (ties → JJ) by the missing penny (<https://en.wikipedia.org/wiki/Bankers_rounding>).<br>• Unit‑test with crafted amounts that round .005 up/down. |
-| 🌟 | **Wearable/Connected strategy flag** | • Extend `family_config.yaml` with:<br>  ```yaml\n  plan_split:\n    wearables: pass_through  # or pooled\n    connected: pass_through\n  ```<br>• Refactor allocator to branch on that flag.<br>• Add tests for each strategy. |
-| ⭐ | **CLI duplicate‑month guard** | • In `ledger_updater.append_rows`, check if a row with the same `Description` already exists; if so, abort unless `--force` is provided.<br>• Emit a colored warning via `click.secho`. |
-| ⭐ | **Balance summary report** | • After updating the CSV, calculate per‑family column sums and print a table (or write `balances_YYYY‑MM.html`).<br>• Consider using `tabulate` for pretty CLI output. |
-| ⭐ | **Bank‑CSV ingestion (reimbursements)** | • Design a simple matcher: rows where `Description` contains “T‑Mobile Zelle” and an amount matching a known family share → create negative row in that family’s column.<br>• Prototype with February checking CSV; add flag `--payments bank.csv`. |
-| 🔹 | **CI & lint** | • Add GitHub Actions workflow: matrix on `python‑version: [3.11]` → `pytest -q` and `ruff check .`.<br>• Fail build if coverage < 80 %. |
-| 🔹 | **Docker image** | • Create `Dockerfile` based on `python:3.11-slim`, copy code, run `pip install -r requirements.txt`.<br>• Entry‑point `CMD ["family-mobile-ledger", "--help"]`. |
-| 🔹 | **Extended docs** | • Split README into **Usage**, **Developer guide**, **Contributing** in `docs/` folder.<br>• Add architecture diagram (draw.io PNG) and link from README. |
+| 🌟 | **Harden `bill_parser.py`** | • Replace placeholder regexes with deterministic, multi‑line patterns or table parsing using `pdfplumber`’s extracted `page.extract_table()`; • Add unit fixtures: save trimmed text from Dec/Jan/Feb 2025 bills in `tests/fixtures/` and write tests that assert each subtotal, equipment amount, and usage record; • Refactor parsing into helper functions (`_parse_subtotals`, `_parse_equipment`, `_parse_usage`) so they can be unit‑tested in isolation. |
+| 🌟 | **Penny‑adjust rounding** | • After `allocator.allocate` builds per‑category buckets, sum the *rounded* values and compare to the source subtotal; • If off by ≥ ¥0.01, bump the family with the largest share (ties → JJ) by the missing penny (<https://en.wikipedia.org/wiki/Bankers_rounding>); • Unit‑test with crafted amounts that round .005 up/down. |
+| 🌟 | **Wearable/Connected strategy flag** | • Extend `family_config.yaml` with;   ```yaml\n  plan_split:\n    wearables: pass_through  # or pooled\n    connected: pass_through\n  ```; • Refactor allocator to branch on that flag; • Add tests for each strategy. |
+| ⭐ | **CLI duplicate‑month guard** | • In `ledger_updater.append_rows`, check if a row with the same `Description` already exists; if so, abort unless `--force` is provided; • Emit a colored warning via `click.secho`. |
+| ⭐ | **Balance summary report** | • After updating the CSV, calculate per‑family column sums and print a table (or write `balances_YYYY‑MM.html`); • Consider using `tabulate` for pretty CLI output. |
+| ⭐ | **Bank‑CSV ingestion (reimbursements)** | • Design a simple matcher: rows where `Description` contains “T‑Mobile Zelle” and an amount matching a known family share → create negative row in that family’s column; • Prototype with February checking CSV; add flag `--payments bank.csv`. |
+| 🔹 | **CI & lint** | • Add GitHub Actions workflow: matrix on `python‑version: [3.11]` → `pytest -q` and `ruff check .`; • Fail build if coverage < 80 %. |
+| 🔹 | **Docker image** | • Create `Dockerfile` based on `python:3.11-slim`, copy code, run `pip install -r requirements.txt`; • Entry‑point `CMD ["family-mobile-ledger", "--help"]`. |
+| 🔹 | **Extended docs** | • Split README into **Usage**, **Developer guide**, **Contributing** in `docs/` folder; • Add architecture diagram (draw.io PNG) and link from README. |
