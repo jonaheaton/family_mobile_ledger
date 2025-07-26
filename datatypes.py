@@ -27,9 +27,17 @@ class BillTotals:
 
 @dataclass
 class LedgerRow:
-    description: str            # “Feb 2025 Voice Plan”
-    date: date
-    jj: Money = Money(0)
-    ks: Money = Money(0)
-    dj: Money = Money(0)
-    re: Money = Money(0)
+    description: str            # "8 voice lines"
+    date: date                  # Due date 
+    amount: Money               # Total amount
+    category: str               # "service", "equipment", "payment", "misc"
+    date_posted: Optional[date] = None  # Posted date (can be blank)
+    shares_jj: Optional[int] = None     # Share units for JJ
+    shares_ks: Optional[int] = None     # Share units for KS  
+    shares_dj: Optional[int] = None     # Share units for DJ
+    shares_re: Optional[int] = None     # Share units for RE
+    shares_total: Optional[int] = None  # Total share units
+    jj: Money = Money(0)        # Cost for JJ
+    ks: Money = Money(0)        # Cost for KS
+    dj: Money = Money(0)        # Cost for DJ
+    re: Money = Money(0)        # Cost for RE
