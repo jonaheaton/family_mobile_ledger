@@ -1,3 +1,4 @@
+# %%
 import pdfplumber, re
 from decimal import Decimal
 from pathlib import Path
@@ -8,7 +9,7 @@ _MONEY = re.compile(r'\$?(-?\d+\.\d{2})')
 
 def _to_money(s: str) -> Decimal:
     return Decimal(_MONEY.search(s).group(1))
-
+# %%
 def parse_bill(pdf_path: Path) -> BillTotals:
     text = ""
     with pdfplumber.open(pdf_path) as pdf:
@@ -69,12 +70,14 @@ def parse_bill(pdf_path: Path) -> BillTotals:
     voice_line = re.search(r'VOICE LINES\s*=\s*\$(\d+\.\d{2})', text)
     wear_line  = re.search(r'WEARABLES\s*=\s*\$(\d+\.\d{2})', text)
     conn_line  = re.search(r'CONNECTED DEVICE\S*\s*=\s*\$(\d+\.\d{2})', text)
-    # Netflix – prefer the amount that appears inside the “REGULAR CHARGES” block
-    netflix = re.search(r'Regular\s+Charges.*?Netflix.*?\$(\d+\.\d{2})',
-                        text, re.S | re.I)
-    if not netflix:
-        # Fallback to first any‑where match (old behaviour)
-        netflix = re.search(r'Netflix.*?\$(\d+\.\d{2})', text, re.I)
+
+    # -------- Netflix charge --------
+    netflix_amounts = [Decimal(m)
+                       for m in re.findall(r'Netflix[^\n$]{0,120}?\$(\d+\.\d{2})',
+                                           text, re.I)]
+    netflix_amt = max(netflix_amounts) if netflix_amounts else Decimal(0)
+    print(f"[DEBUG] Netflix amounts found → {netflix_amounts}")
+    print(f"[DEBUG] Selected netflix_amt = {netflix_amt}")
 
     # ------------------------------------------------------------------
     # equipment charges – robust section‑based parsing (page 3)
@@ -143,30 +146,41 @@ def parse_bill(pdf_path: Path) -> BillTotals:
 
     # international / roaming / long‑distance usage
     usage = {}
-    usage_pattern = re.compile(
-        r'\((\d{3})[)\s-]*(\d{3})[- ](\d{4})'      # phone
-        r'[^\n$]{0,80}?'                            # up to 80 chars, no newline
-        r'\bto\s+[A-Z][A-Z ]{2,}'                   # word “to COUNTRY/AREA”
-        r'[^\n$]{0,80}?'
-        r'\$(\d+\.\d{2})',                          # charge
-        re.I)
+    
+    # Look for detailed usage charges in CHARGED USAGE section
     usage_block = ""
-    m_usage = re.search(r'ONE-TIME CHARGES(.*?)(?:SERVICES|TOTAL DUE)', text, re.S | re.I)
-    if m_usage:
-        usage_block = m_usage.group(1)
-    else:
-        usage_block = text  # fallback
-    for m in usage_pattern.finditer(usage_block):
-        num = ''.join(m.group(i) for i in range(1, 4))
-        amt = Decimal(m.group(4))
-        usage[num] = usage.get(num, Decimal(0)) + amt
+    m_charged = re.search(r'^\s*CHARGED USAGE\s*$(.*?)(?:OTHER|TAXES|SERVICES|Bill issue date)', text, re.S | re.I | re.M)
+    if m_charged:
+        usage_block = m_charged.group(1)
+        
+        # Pattern 1: International calls - "(phone) ... $amount ... to COUNTRY"
+        intl_pattern = re.compile(
+            r'\((\d{3})\)\s*(\d{3})-(\d{4})'          # phone
+            r'[\s\S]{0,120}?'
+            r'\$(\d+\.\d{2})'
+            r'[\s\S]{0,120}?'
+            r'\bto\s+[A-Z]',                          # "to COUNTRY"
+            re.I)
+        
+        for m in intl_pattern.finditer(usage_block):
+            num = ''.join(m.group(i) for i in range(1, 4))
+            amt = Decimal(m.group(4))
+            usage[num] = usage.get(num, Decimal(0)) + amt
+        
+        # Pattern 2: Domestic usage charges - "(phone) Talk: X mins $amount"
+        domestic_pattern = re.compile(
+            r'\((\d{3})\)\s*(\d{3})-(\d{4})'          # phone
+            r'\s+Talk:\s*\d+\s*mins?\s*'              # "Talk: X mins"
+            r'\$(\d+\.\d{2})',                        # amount
+            re.I)
+        
+        for m in domestic_pattern.finditer(usage_block):
+            num = ''.join(m.group(i) for i in range(1, 4))
+            amt = Decimal(m.group(4))
+            usage[num] = usage.get(num, Decimal(0)) + amt
 
-    netflix_amt = Decimal(netflix.group(1)) if netflix else Decimal(0)
-    if netflix_amt < Decimal("3.00"):
-        # Try to find any larger Netflix charge
-        alt = re.search(r'Netflix.*?\$(\d+\.\d{2})', text, re.I)
-        if alt and Decimal(alt.group(1)) > netflix_amt:
-            netflix_amt = Decimal(alt.group(1))
+    print(f"[DEBUG] Usage block length = {len(usage_block)} chars")
+    print(f"[DEBUG] Parsed usage dict: {usage}")
 
     return BillTotals(
         cycle_start=cycle_start,
