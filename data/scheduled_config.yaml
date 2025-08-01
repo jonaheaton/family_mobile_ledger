@@ -14,9 +14,9 @@ monthly_payments:
   daniel:
     description: "Daniel Eaton"
     amount: -69.73
-    day_of_month: 3  # 3rd of each month
+    day_of_month: 7  # 3rd of each month
     family: "DJ"
-    start_date: "2025-03-03" 
+    start_date: "2025-04-07" 
     enabled: true
     
   seth:
