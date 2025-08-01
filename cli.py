@@ -2,8 +2,10 @@ import click
 from pathlib import Path
 from family_mobile_ledger import bill_parser, allocator, ledger_updater
 
+DEFAULT_LEDGER_LOCATION = Path('expenses.csv')
+
 @click.command()
-@click.argument('ledger_csv', type=click.Path(exists=True, path_type=Path))
+@click.option('--ledger-csv', type=click.Path(path_type=Path), default=DEFAULT_LEDGER_LOCATION, help='Path to the ledger CSV file')
 @click.argument('pdfs', nargs=-1, type=click.Path(exists=True, path_type=Path))
 def main(ledger_csv, pdfs):
     for pdf in pdfs:
