@@ -1,3 +1,7 @@
+'''
+To Run:
+python -m family_mobile_ledger.cli SummaryBillXXX2025.pdf
+'''
 import click
 import logging
 from pathlib import Path
