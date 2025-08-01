@@ -8,7 +8,8 @@ from decimal import Decimal
 
 from family_mobile_ledger.scheduled import (
     enrique_payment, daniel_payment, seth_payment, wsj_charge,
-    update_all_scheduled, _get_existing_entries
+    update_all_scheduled, _get_existing_entries,
+    jonah_payment_for_bill, add_jonah_payment_if_missing
 )
 from family_mobile_ledger.datatypes import LedgerRow
 
@@ -178,3 +179,222 @@ class TestScheduledPayments:
         unique_entries = set(descriptions_and_dates)
         
         assert len(descriptions_and_dates) == len(unique_entries), "Should not create duplicate entries"
+
+
+class TestJonahPayments:
+    """Test Jonah payment calculation and integration"""
+    
+    def test_jonah_payment_calculation(self):
+        """Test Jonah payment calculation from T-Mobile bill"""
+        due_date = date(2025, 6, 24)
+        
+        # Sample T-Mobile bill entries
+        bill_rows = [
+            LedgerRow(
+                description="voice lines",
+                date=due_date,
+                amount=Decimal('100.00'),
+                category='service',
+                shares_jj=1, shares_ks=1, shares_dj=1, shares_re=1,
+                shares_total=4,
+                jj=Decimal('25.00'),
+                ks=Decimal('25.00'),
+                dj=Decimal('25.00'),
+                re=Decimal('25.00')
+            ),
+            LedgerRow(
+                description="jonah iphone",
+                date=due_date,
+                amount=Decimal('33.34'),
+                category='equipment',
+                shares_jj=1, shares_ks=None, shares_dj=None, shares_re=None,
+                shares_total=1,
+                jj=Decimal('33.34'),
+                ks=Decimal('0.00'),
+                dj=Decimal('0.00'),
+                re=Decimal('0.00')
+            )
+        ]
+        
+        jonah_payment = jonah_payment_for_bill(bill_rows, due_date)
+        
+        assert jonah_payment is not None
+        assert jonah_payment.amount == Decimal('-58.34')  # -(25.00 + 33.34)
+        assert jonah_payment.description == "Jonah"
+        assert jonah_payment.date == due_date
+        assert jonah_payment.category == "payment"
+        assert jonah_payment.jj == Decimal('-58.34')
+    
+    def test_jonah_payment_no_jj_costs(self):
+        """Test that no payment is created when bill has no JJ costs"""
+        due_date = date(2025, 6, 24)
+        
+        bill_rows = [
+            LedgerRow(
+                description="rebecca iphone",
+                date=due_date,
+                amount=Decimal('26.25'),
+                category='equipment',
+                shares_jj=None, shares_ks=None, shares_dj=None, shares_re=1,
+                shares_total=1,
+                jj=Decimal('0.00'),
+                ks=Decimal('0.00'),
+                dj=Decimal('0.00'),
+                re=Decimal('26.25')
+            )
+        ]
+        
+        jonah_payment = jonah_payment_for_bill(bill_rows, due_date)
+        
+        assert jonah_payment is None
+    
+    def test_add_jonah_payment_if_missing(self):
+        """Test adding Jonah payment to existing ledger"""
+        due_date = date(2025, 6, 24)
+        
+        # Existing ledger without Jonah payment
+        existing_ledger = [
+            LedgerRow(
+                description="voice lines",
+                date=due_date,
+                amount=Decimal('100.00'),
+                category='service',
+                shares_jj=1, shares_ks=1, shares_dj=1, shares_re=1,
+                shares_total=4,
+                jj=Decimal('25.00'),
+                ks=Decimal('25.00'),
+                dj=Decimal('25.00'),
+                re=Decimal('25.00')
+            )
+        ]
+        
+        # Bill rows that were just added
+        bill_rows = existing_ledger
+        
+        updated_ledger = add_jonah_payment_if_missing(existing_ledger, bill_rows, due_date)
+        
+        # Should have added Jonah payment
+        assert len(updated_ledger) == 2
+        
+        jonah_payments = [row for row in updated_ledger 
+                         if "jonah" in row.description.lower() and row.category == "payment"]
+        assert len(jonah_payments) == 1
+        assert jonah_payments[0].amount == Decimal('-25.00')
+    
+    def test_jonah_payment_duplicate_prevention(self):
+        """Test that duplicate Jonah payments are not created"""
+        due_date = date(2025, 6, 24)
+        
+        # Existing ledger with Jonah payment already
+        existing_ledger = [
+            LedgerRow(
+                description="voice lines",
+                date=due_date,
+                amount=Decimal('100.00'),
+                category='service',
+                shares_jj=1, shares_ks=1, shares_dj=1, shares_re=1,
+                shares_total=4,
+                jj=Decimal('25.00'),
+                ks=Decimal('25.00'),
+                dj=Decimal('25.00'),
+                re=Decimal('25.00')
+            ),
+            LedgerRow(
+                description="Jonah",
+                date=due_date,
+                amount=Decimal('-25.00'),
+                category='payment',
+                shares_jj=1, shares_ks=None, shares_dj=None, shares_re=None,
+                shares_total=1,
+                jj=Decimal('-25.00'),
+                ks=Decimal('0.00'),
+                dj=Decimal('0.00'),
+                re=Decimal('0.00')
+            )
+        ]
+        
+        # Try to add Jonah payment again
+        bill_rows = [existing_ledger[0]]  # Just the bill entry
+        updated_ledger = add_jonah_payment_if_missing(existing_ledger, bill_rows, due_date)
+        
+        # Should not have added another Jonah payment
+        assert len(updated_ledger) == 2
+        
+        jonah_payments = [row for row in updated_ledger 
+                         if "jonah" in row.description.lower() and row.category == "payment"]
+        assert len(jonah_payments) == 1  # Still only one
+
+
+class TestWSJJonahIntegration:
+    """Test WSJ charges automatically include Jonah payments"""
+    
+    def test_wsj_includes_jonah_payment(self):
+        """Test that WSJ charges automatically create Jonah payments"""
+        empty_ledger = []
+        updated_ledger = wsj_charge(empty_ledger)
+        
+        # Separate WSJ charges from Jonah payments
+        wsj_charges = [row for row in updated_ledger if "WSJ" in row.description and row.category == "misc"]
+        jonah_payments = [row for row in updated_ledger if "jonah" in row.description.lower() and row.category == "payment"]
+        
+        # Should have equal numbers
+        assert len(wsj_charges) > 0, "Should have WSJ charges"
+        assert len(jonah_payments) > 0, "Should have Jonah payments"
+        assert len(wsj_charges) == len(jonah_payments), "Should have equal WSJ charges and Jonah payments"
+        
+        # Verify dates match
+        wsj_dates = {row.date for row in wsj_charges}
+        jonah_dates = {row.date for row in jonah_payments}
+        assert wsj_dates == jonah_dates, "WSJ and Jonah payment dates should match"
+    
+    def test_wsj_jonah_amounts(self):
+        """Test that WSJ Jonah payment amounts are correct"""
+        empty_ledger = []
+        updated_ledger = wsj_charge(empty_ledger)
+        
+        wsj_charges = [row for row in updated_ledger if "WSJ" in row.description and row.category == "misc"]
+        jonah_payments = [row for row in updated_ledger if "jonah" in row.description.lower() and row.category == "payment"]
+        
+        for wsj_charge_row in wsj_charges:
+            # Find corresponding Jonah payment
+            jonah_payment_row = next(
+                (row for row in jonah_payments if row.date == wsj_charge_row.date),
+                None
+            )
+            
+            assert jonah_payment_row is not None, f"Missing Jonah payment for WSJ charge on {wsj_charge_row.date}"
+            
+            # Verify amounts
+            assert wsj_charge_row.amount == Decimal('70.76'), "WSJ charge should be $70.76"
+            assert wsj_charge_row.jj == Decimal('23.59'), "WSJ JJ portion should be $23.59"
+            assert jonah_payment_row.amount == Decimal('-23.59'), "Jonah payment should be -$23.59"
+            assert jonah_payment_row.jj == Decimal('-23.59'), "Jonah payment JJ cost should be -$23.59"
+    
+    def test_wsj_partial_duplicate_handling(self):
+        """Test adding missing Jonah payment when WSJ charge already exists"""
+        # Create ledger with WSJ charge but no Jonah payment
+        existing_date = date(2024, 9, 15)
+        existing_ledger = [
+            LedgerRow(
+                description="WSJ",
+                date=existing_date,
+                amount=Decimal('70.76'),
+                category='misc',
+                shares_jj=1, shares_ks=0, shares_dj=2, shares_re=0,
+                shares_total=3,
+                jj=Decimal('23.59'),
+                ks=Decimal('0.00'),
+                dj=Decimal('47.17'),
+                re=Decimal('0.00')
+            )
+        ]
+        
+        updated_ledger = wsj_charge(existing_ledger)
+        
+        # Should have added the missing Jonah payment
+        jonah_payments = [row for row in updated_ledger 
+                         if row.date == existing_date and "jonah" in row.description.lower() 
+                         and row.category == "payment"]
+        
+        assert len(jonah_payments) == 1, "Should have added missing Jonah payment"
+        assert jonah_payments[0].amount == Decimal('-23.59'), "Jonah payment amount should be correct"

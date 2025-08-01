@@ -52,9 +52,25 @@ def main(ledger_csv, skip_scheduled, pdfs):
         
         for pdf in pdfs:
             bill = bill_parser.parse_bill(pdf)
-            rows = allocator.allocate(bill)
-            ledger_updater.append_rows(ledger_csv, rows)
-            click.echo(f'✔ {pdf.name} → {len(rows)} rows appended')
+            bill_rows = allocator.allocate(bill)
+            
+            # Add the bill entries to the ledger
+            ledger_updater.append_rows(ledger_csv, bill_rows)
+            click.echo(f'✔ {pdf.name} → {len(bill_rows)} rows appended')
+            
+            # Check if we need to add Jonah's payment for this bill
+            from family_mobile_ledger.scheduled import add_jonah_payment_if_missing
+            
+            # Read the current ledger (including the entries we just added)
+            current_ledger = ledger_updater.read_ledger(ledger_csv)
+            
+            # Add Jonah payment if missing
+            updated_ledger = add_jonah_payment_if_missing(current_ledger, bill_rows, bill.due_date)
+            
+            # If a Jonah payment was added, write the full ledger back
+            if len(updated_ledger) > len(current_ledger):
+                ledger_updater.write_full_ledger(ledger_csv, updated_ledger)
+                click.echo(f'💰 Added Jonah payment for {bill.due_date}')
     else:
         click.echo("📄 No PDF bills to process")
     

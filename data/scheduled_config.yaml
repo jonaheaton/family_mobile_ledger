@@ -1,0 +1,97 @@
+# Scheduled Payments and Charges Configuration
+# This file defines all recurring payments and charges in the family mobile ledger
+
+# Configuration for regular monthly payments
+monthly_payments:
+  enrique:
+    description: "Enrique Gonzalez"
+    amount: -105.59
+    day_of_month: 6  # 6th of each month
+    family: "RE"
+    start_date: "2025-01-06"  # When this payment schedule started
+    enabled: true
+    
+  daniel:
+    description: "Daniel Eaton"
+    amount: -69.73
+    day_of_month: 3  # 3rd of each month
+    family: "DJ"
+    start_date: "2025-01-03"  # When this payment schedule started
+    enabled: true
+    
+  seth:
+    description: "Seth R Eaton"
+    amount: -77.00
+    day_of_month: 15  # 15th of each month
+    family: "KS"
+    start_date: "2024-01-15"  # Historical start date
+    enabled: true
+
+# Configuration for periodic charges (every N weeks/days)
+periodic_charges:
+  wsj:
+    description: "WSJ"
+    amount: 70.76
+    category: "misc"
+    interval_days: 28  # Every 4 weeks (28 days)
+    start_date: "2024-09-15"  # First observed WSJ charge
+    enabled: true
+    
+    # Share allocation for WSJ
+    shares:
+      JJ: 1
+      KS: 0
+      DJ: 2
+      RE: 0
+    
+    # Precalculated costs (to match historical data exactly)
+    costs:
+      JJ: 23.59
+      KS: 0.00
+      DJ: 47.17
+      RE: 0.00
+    
+    # Auto-generate Jonah payment for JJ portion
+    auto_jonah_payment:
+      enabled: true
+      amount: -23.59  # Negative of JJ cost
+      description: "Jonah"
+
+# Configuration for bill-triggered payments
+# These are calculated when T-Mobile bills are processed
+bill_triggered_payments:
+  jonah_tmobile:
+    description: "Jonah"
+    family: "JJ"
+    trigger: "tmobile_bill"  # Triggered when T-Mobile bill is processed
+    calculation: "sum_jj_costs"  # Sum all JJ costs from the bill
+    enabled: true
+
+# General settings
+settings:
+  # Date format for parsing dates in this config
+  date_format: "%Y-%m-%d"
+  
+  # Default timezone (for future use)
+  timezone: "America/New_York"
+  
+  # Logging level for scheduled payment operations
+  log_level: "INFO"
+  
+  # Whether to create payments for dates in the future
+  allow_future_dates: false
+
+# Historical notes and metadata
+metadata:
+  config_version: "1.0"
+  created_date: "2025-08-01"
+  description: "Configuration for family mobile ledger scheduled payments"
+  
+  # Notes about payment history and changes
+  notes: |
+    - Enrique payment amount changed to $105.59 starting Jan 2025
+    - Daniel payments started being tracked Jan 2025 
+    - Seth payments have been consistent at $77.00 monthly
+    - WSJ charges started Sep 2024, every 4 weeks
+    - WSJ Jonah payments auto-generated with each WSJ charge
+    - T-Mobile Jonah payments calculated per bill based on JJ allocation
