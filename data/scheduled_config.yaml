@@ -8,7 +8,7 @@ monthly_payments:
     amount: -105.59
     day_of_month: 6  # 6th of each month
     family: "RE"
-    start_date: "2025-01-06"  # When this payment schedule started
+    start_date: "2025-03-06" 
     enabled: true
     
   daniel:
@@ -16,7 +16,7 @@ monthly_payments:
     amount: -69.73
     day_of_month: 3  # 3rd of each month
     family: "DJ"
-    start_date: "2025-01-03"  # When this payment schedule started
+    start_date: "2025-03-03" 
     enabled: true
     
   seth:
@@ -24,7 +24,7 @@ monthly_payments:
     amount: -77.00
     day_of_month: 15  # 15th of each month
     family: "KS"
-    start_date: "2024-01-15"  # Historical start date
+    start_date: "2025-03-15"
     enabled: true
 
 # Configuration for periodic charges (every N weeks/days)
@@ -34,7 +34,7 @@ periodic_charges:
     amount: 70.76
     category: "misc"
     interval_days: 28  # Every 4 weeks (28 days)
-    start_date: "2024-09-15"  # First observed WSJ charge
+    start_date: "2025-03-02"  # First observed WSJ charge
     enabled: true
     
     # Share allocation for WSJ
