@@ -1,13 +1,79 @@
 import click
 import logging
 from pathlib import Path
+from decimal import Decimal
+from typing import Dict, List
 from family_mobile_ledger import bill_parser, allocator, ledger_updater, scheduled
+from family_mobile_ledger.datatypes import LedgerRow
 
 DEFAULT_LEDGER_LOCATION = Path('expenses.csv')
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
+
+def calculate_family_balances(ledger: List[LedgerRow]) -> Dict[str, Decimal]:
+    """
+    Calculate outstanding balance for each family.
+    
+    Positive balance = family owes money (charges > payments)
+    Negative balance = family has credit (payments > charges)
+    
+    Returns:
+        Dict mapping family codes to their outstanding balances
+    """
+    family_balances = {
+        'JJ': Decimal('0'),
+        'KS': Decimal('0'), 
+        'DJ': Decimal('0'),
+        'RE': Decimal('0')
+    }
+    
+    for row in ledger:
+        # Add family costs (positive = they owe)
+        family_balances['JJ'] += row.jj
+        family_balances['KS'] += row.ks
+        family_balances['DJ'] += row.dj
+        family_balances['RE'] += row.re
+    
+    return family_balances
+
+def format_balance_report(balances: Dict[str, Decimal]) -> str:
+    """
+    Format family balances in an email-friendly format.
+    """
+    family_names = {
+        'JJ': 'Jonah & Janet',
+        'KS': 'Karen & Seth', 
+        'DJ': 'Daniel & Jackie',
+        'RE': 'Rebecca & Enrique'
+    }
+    
+    report_lines = []
+    report_lines.append("=== FAMILY MOBILE LEDGER BALANCES ===")
+    report_lines.append("")
+    
+    total_outstanding = Decimal('0')
+    
+    for family_code, balance in balances.items():
+        family_name = family_names[family_code]
+        
+        if balance > 0:
+            status = f"owes ${balance:.2f}"
+            total_outstanding += balance
+        elif balance < 0:
+            status = f"has credit of ${abs(balance):.2f}"
+        else:
+            status = "balanced (${:.2f})".format(balance)
+        
+        report_lines.append(f"{family_name} ({family_code}): {status}")
+    
+    report_lines.append("")
+    report_lines.append(f"Total Outstanding: ${total_outstanding:.2f}")
+    report_lines.append("")
+    report_lines.append("(Generated automatically by Family Mobile Ledger)")
+    
+    return "\n".join(report_lines)
 
 @click.command()
 @click.option('--ledger-csv', type=click.Path(path_type=Path), default=DEFAULT_LEDGER_LOCATION, help='Path to the ledger CSV file')
@@ -75,6 +141,16 @@ def main(ledger_csv, skip_scheduled, pdfs):
         click.echo("📄 No PDF bills to process")
     
     click.echo("🎉 Ledger update complete!")
+    
+    # Step 3: Display outstanding balances
+    click.echo("\n💰 Calculating outstanding balances...")
+    
+    # Read the final ledger state
+    final_ledger = ledger_updater.read_ledger(ledger_csv)
+    balances = calculate_family_balances(final_ledger)
+    balance_report = format_balance_report(balances)
+    
+    click.echo("\n" + balance_report)
 
 if __name__ == '__main__':
     main()
