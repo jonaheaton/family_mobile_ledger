@@ -48,24 +48,24 @@ def allocate(bill: BillTotals) -> list[LedgerRow]:
     # Voice plan row
     if bill.voice_subtotal > 0:
         voice_shares = _count_by_family([d.family for d in voice_numbers])
-        rows.append(_service_row(f'{len(voice_numbers)} voice lines', bill.cycle_end, 
+        rows.append(_service_row(f'{len(voice_numbers)} voice lines', bill.due_date, 
                                  bill.voice_subtotal, voice_shares, voice_alloc))
     
     # Wearable plan row  
     if bill.wearable_subtotal > 0:
         wear_shares = _count_by_family([d.family for d in wearables])
-        rows.append(_service_row(f'{len(wearables)} wearable plans', bill.cycle_end,
+        rows.append(_service_row(f'{len(wearables)} wearable plans', bill.due_date,
                                  bill.wearable_subtotal, wear_shares, wear_alloc))
     
     # Connected plan row
     if bill.connected_subtotal > 0:
         conn_shares = _count_by_family([d.family for d in connected])
-        rows.append(_service_row(f'{len(connected)} hotspot plan', bill.cycle_end,
+        rows.append(_service_row(f'{len(connected)} hotspot plan', bill.due_date,
                                  bill.connected_subtotal, conn_shares, conn_alloc))
     
     # Netflix row
     if bill.netflix_charge > 0:
-        rows.append(_service_row('netflix', bill.cycle_end, bill.netflix_charge, adults, netflix_alloc))
+        rows.append(_service_row('netflix', bill.due_date, bill.netflix_charge, adults, netflix_alloc))
     
     # Equipment rows - one per device
     for num, amt in bill.equipments.items():
@@ -74,7 +74,7 @@ def allocate(bill: BillTotals) -> list[LedgerRow]:
             desc = _equipment_description(num, device)
             family_shares = {device.family: 1}
             family_costs = {device.family: amt}
-            rows.append(_equipment_row(desc, bill.cycle_end, amt, family_shares, family_costs))
+            rows.append(_equipment_row(desc, bill.due_date, amt, family_shares, family_costs))
     
     # Usage rows - one per phone with usage
     for num, amt in bill.usage.items():
@@ -83,7 +83,7 @@ def allocate(bill: BillTotals) -> list[LedgerRow]:
             desc = _usage_description(num, device, amt)
             family_shares = {device.family: 1}
             family_costs = {device.family: amt}
-            rows.append(_misc_row(desc, bill.cycle_end, amt, family_shares, family_costs))
+            rows.append(_misc_row(desc, bill.due_date, amt, family_shares, family_costs))
     
     return rows
 
