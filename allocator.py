@@ -11,6 +11,7 @@ def allocate(bill: BillTotals) -> list[LedgerRow]:
     adults        = adults_by_family(devices)
 
     # Rule A – voice
+    # Note: bill.voice_line_count now represents billable lines (excluding non-allocatable ones)
     per_line = bill.voice_subtotal / Decimal(bill.voice_line_count)
     voice_alloc = _allocate_voice_by_bill_count(bill.voice_subtotal, bill.voice_line_count, voice_numbers)
 

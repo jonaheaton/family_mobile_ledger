@@ -86,15 +86,40 @@ def test_usage_parsing_mar(march_pdf):
 
 
 # --------------------------------------------------------------------------- #
-# Voice‑line count sanity check (11 lines → $260 total)
+# Voice‑line count sanity check (11 reported → 10 billable after line transfers)
 # --------------------------------------------------------------------------- #
 def test_voice_line_count_sanity_mar(march_pdf):
     bill = bill_parser.parse_bill(march_pdf)
 
-    # Header states 11 voice lines. Per‑line effective rate ≈ $23.636...; rounded 2dp = $23.64
-    per_line = (bill.voice_subtotal / Decimal(11)).quantize(Decimal("0.01"))
+    # Header states 11 voice lines, but line 2409883906 is "Old number" and non-billable
+    # System should detect this and use 10 billable lines for allocation
+    assert bill.voice_line_count == 10, f"Expected 10 billable lines after line transfer detection, got {bill.voice_line_count}"
     assert bill.voice_subtotal == Decimal("260.00")
-    assert per_line == Decimal("23.64")
+    
+    # Per-line rate should be based on 10 billable lines: $260/10 = $26.00
+    per_line = bill.voice_subtotal / Decimal(bill.voice_line_count)
+    assert per_line == Decimal("26.00")
+
+
+# --------------------------------------------------------------------------- #
+# Line transfer detection test (March has "Old number" line 2409883906)
+# --------------------------------------------------------------------------- #  
+def test_line_transfer_detection_mar(march_pdf):
+    """Test detection of non-allocatable voice lines during line transfers."""
+    bill = bill_parser.parse_bill(march_pdf)
+    
+    # March bill has line transfer scenario:
+    # - Top level reports: "11 VOICE LINES = $260.00"
+    # - Bill summary shows line (240) 988-3906 as "Old number" with null Plans column  
+    # - Only 10 lines should be billable/allocatable
+    
+    # System should automatically detect and exclude non-allocatable line
+    assert bill.voice_line_count == 10
+    assert bill.voice_subtotal == Decimal("260.00")
+    
+    # Verify that cost allocation will be based on 10 lines, not 11
+    expected_cost_per_line = Decimal("260.00") / Decimal("10")  # $26.00
+    assert expected_cost_per_line == Decimal("26.00")
 
 
 # --------------------------------------------------------------------------- #

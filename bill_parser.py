@@ -9,6 +9,59 @@ _MONEY = re.compile(r'\$?(-?\d+\.\d{2})')
 
 def _to_money(s: str) -> Decimal:
     return Decimal(_MONEY.search(s).group(1))
+
+def _detect_non_allocatable_voice_lines(text: str) -> list[dict]:
+    """
+    Detect voice lines that shouldn't be allocated (e.g., old numbers during transfers).
+    
+    Looks for voice lines in the bill summary that have:
+    - Line type "Voice" 
+    - Empty/null Plans column (indicated by "-" or blank)
+    - Descriptors like "Old number", "Transferred", etc.
+    
+    Returns list of dicts with 'number' and 'reason' keys.
+    """
+    non_allocatable = []
+    
+    # Look for bill summary section lines that match this pattern:
+    # (xxx) xxx-xxxx - Description Voice Plans Equipment Services $x.xx
+    # We want to find Voice lines where Plans column is "-" (empty/null)
+    
+    # Split text into lines and look for the summary section
+    lines = text.split('\n')
+    in_summary_section = False
+    
+    for line in lines:
+        # Start processing when we find "THIS BILL SUMMARY" or similar
+        if re.search(r'THIS\s+BILL\s+SUMMARY', line, re.I):
+            in_summary_section = True
+            continue
+        
+        # Stop processing when we leave the summary section 
+        if in_summary_section and re.search(r'^[A-Z][A-Z\s]+\$', line):
+            if 'Voice' not in line:  # Don't stop on voice line headers
+                break
+        
+        if in_summary_section:
+            # Match pattern: (xxx) xxx-xxxx - Description Voice - - - $x.xx
+            # Looking specifically for Voice lines with "-" in Plans column
+            voice_line_match = re.match(
+                r'\((\d{3})\)\s*(\d{3})-(\d{4})\s*-\s*(.*?)\s+Voice\s+(-)\s+(-)\s+(-)\s+\$[\d.]+', 
+                line.strip()
+            )
+            
+            if voice_line_match:
+                phone_number = ''.join(voice_line_match.group(i) for i in [1, 2, 3])
+                description = voice_line_match.group(4).strip()
+                
+                reason = f"Non-billable voice line ({description})" if description else "Non-billable voice line"
+                non_allocatable.append({
+                    'number': phone_number,
+                    'reason': reason
+                })
+                print(f"[DEBUG] Detected non-allocatable voice line: {phone_number} - {description}")
+    
+    return non_allocatable
 # %%
 def parse_bill(pdf_path: Path) -> BillTotals:
     text = ""
@@ -70,6 +123,21 @@ def parse_bill(pdf_path: Path) -> BillTotals:
     voice_line = re.search(r'(\d+)\s+VOICE LINES\s*=\s*\$(\d+\.\d{2})', text)
     wear_line  = re.search(r'WEARABLES\s*=\s*\$(\d+\.\d{2})', text)
     conn_line  = re.search(r'CONNECTED DEVICE\S*\s*=\s*\$(\d+\.\d{2})', text)
+    
+    # Detect non-allocatable voice lines (e.g., "old numbers" during transfers)
+    non_allocatable_lines = _detect_non_allocatable_voice_lines(text)
+    total_voice_count = int(voice_line.group(1)) if voice_line else 0
+    billable_voice_count = total_voice_count - len(non_allocatable_lines)
+    
+    # Warn about voice line allocation mismatches
+    if non_allocatable_lines:
+        print(f"⚠️  VOICE LINE TRANSFER DETECTED:")
+        print(f"   Total voice lines reported: {total_voice_count}")
+        print(f"   Non-allocatable lines (transfers/old numbers): {len(non_allocatable_lines)}")
+        for line in non_allocatable_lines:
+            print(f"     • {line['number']} - {line['reason']}")
+        print(f"   Billable voice lines for allocation: {billable_voice_count}")
+        print("   Using billable count for cost allocation calculations.")
 
     # -------- Netflix charge --------
     netflix_amounts = [Decimal(m)
@@ -188,7 +256,7 @@ def parse_bill(pdf_path: Path) -> BillTotals:
         due_date=issue_date,   # bill due date often equals issue date for our needs
         total_due=total_due,
         voice_subtotal=_to_money(voice_line.group(2)),
-        voice_line_count=int(voice_line.group(1)),
+        voice_line_count=billable_voice_count,  # Use billable count, not raw count
         wearable_subtotal=_to_money(wear_line.group(1)) if wear_line else Decimal(0),
         connected_subtotal=_to_money(conn_line.group(1)) if conn_line else Decimal(0),
         netflix_charge=netflix_amt,
