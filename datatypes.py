@@ -19,6 +19,7 @@ class BillTotals:
     due_date: date
     total_due: Money
     voice_subtotal: Money
+    voice_line_count: int               # actual count from bill
     wearable_subtotal: Money
     connected_subtotal: Money
     netflix_charge: Money

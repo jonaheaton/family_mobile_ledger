@@ -96,6 +96,7 @@ def oct_bill() -> BillTotals:
         due_date=date(2024, 10, 24),
         total_due=expected_total,  # Calculate correct total for validation
         voice_subtotal=VOICE_SUBTOTAL,
+        voice_line_count=7,  # October 2024 had 7 voice lines
         wearable_subtotal=WEARABLE_SUBTOTAL,
         connected_subtotal=CONNECTED_SUBTOTAL,
         netflix_charge=NETFLIX,
@@ -200,6 +201,7 @@ def test_allocation_total_validation(patched_devices_and_adults, oct_bill, capsy
         due_date=date(2024, 10, 24),
         total_due=Decimal("500.00"),  # Artificially high total
         voice_subtotal=VOICE_SUBTOTAL,
+        voice_line_count=7,  # October 2024 had 7 voice lines
         wearable_subtotal=WEARABLE_SUBTOTAL,
         connected_subtotal=CONNECTED_SUBTOTAL,
         netflix_charge=NETFLIX,

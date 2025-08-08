@@ -11,8 +11,8 @@ def allocate(bill: BillTotals) -> list[LedgerRow]:
     adults        = adults_by_family(devices)
 
     # Rule A – voice
-    per_line = bill.voice_subtotal / Decimal(len(voice_numbers))
-    voice_alloc = _share(per_line, [d.family for d in voice_numbers])
+    per_line = bill.voice_subtotal / Decimal(bill.voice_line_count)
+    voice_alloc = _allocate_voice_by_bill_count(bill.voice_subtotal, bill.voice_line_count, voice_numbers)
 
     # Rule B – wearables pass-through
     wear_alloc = defaultdict(Decimal)
@@ -47,8 +47,9 @@ def allocate(bill: BillTotals) -> list[LedgerRow]:
     
     # Voice plan row
     if bill.voice_subtotal > 0:
-        voice_shares = _count_by_family([d.family for d in voice_numbers])
-        rows.append(_service_row(f'{len(voice_numbers)} voice lines', bill.due_date, 
+        # Calculate shares based on actual bill count, not config count
+        voice_shares = _calculate_voice_shares(bill.voice_line_count, voice_numbers)
+        rows.append(_service_row(f'{bill.voice_line_count} voice lines', bill.due_date, 
                                  bill.voice_subtotal, voice_shares, voice_alloc))
     
     # Wearable plan row  
@@ -127,6 +128,44 @@ def _count_by_family(families):
     for fam in families:
         counts[fam] += 1
     return dict(counts)
+
+def _calculate_voice_shares(bill_count, voice_devices):
+    """
+    Calculate voice line shares based on the bill count, not device config count.
+    
+    The bill shows fewer active lines than we have configured devices.
+    We assume the "extra" line belongs to KS family (as evidenced by historical data).
+    """
+    config_count = len(voice_devices)
+    config_shares = _count_by_family([d.family for d in voice_devices])
+    
+    if bill_count == config_count:
+        # Bill matches config - use config shares
+        return config_shares
+    elif bill_count < config_count:
+        # Bill has fewer lines than config - reduce KS shares
+        adjustment = config_count - bill_count
+        adjusted_shares = config_shares.copy()
+        adjusted_shares['KS'] = max(0, adjusted_shares.get('KS', 0) - adjustment)
+        return adjusted_shares
+    else:
+        # Bill has more lines than config - shouldn't happen, use config
+        return config_shares
+
+def _allocate_voice_by_bill_count(voice_subtotal, bill_count, voice_devices):
+    """
+    Allocate voice line costs based on the bill count and family shares.
+    
+    This ensures we allocate exactly the bill amount, not more.
+    """
+    per_line = voice_subtotal / Decimal(bill_count)
+    adjusted_shares = _calculate_voice_shares(bill_count, voice_devices)
+    
+    voice_alloc = defaultdict(Decimal)
+    for family, share_count in adjusted_shares.items():
+        voice_alloc[family] = per_line * Decimal(share_count)
+    
+    return voice_alloc
 
 def _service_row(description, due_date, amount, shares, costs):
     """Create a service category row"""

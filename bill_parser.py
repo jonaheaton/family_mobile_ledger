@@ -67,7 +67,7 @@ def parse_bill(pdf_path: Path) -> BillTotals:
     total_due = Decimal(total_due_match.group(1))
 
     # crude regexes; replace with more robust abstractions if needed
-    voice_line = re.search(r'VOICE LINES\s*=\s*\$(\d+\.\d{2})', text)
+    voice_line = re.search(r'(\d+)\s+VOICE LINES\s*=\s*\$(\d+\.\d{2})', text)
     wear_line  = re.search(r'WEARABLES\s*=\s*\$(\d+\.\d{2})', text)
     conn_line  = re.search(r'CONNECTED DEVICE\S*\s*=\s*\$(\d+\.\d{2})', text)
 
@@ -187,7 +187,8 @@ def parse_bill(pdf_path: Path) -> BillTotals:
         cycle_end=cycle_end,
         due_date=issue_date,   # bill due date often equals issue date for our needs
         total_due=total_due,
-        voice_subtotal=_to_money(voice_line.group(1)),
+        voice_subtotal=_to_money(voice_line.group(2)),
+        voice_line_count=int(voice_line.group(1)),
         wearable_subtotal=_to_money(wear_line.group(1)) if wear_line else Decimal(0),
         connected_subtotal=_to_money(conn_line.group(1)) if conn_line else Decimal(0),
         netflix_charge=netflix_amt,
