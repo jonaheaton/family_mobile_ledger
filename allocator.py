@@ -85,6 +85,16 @@ def allocate(bill: BillTotals) -> list[LedgerRow]:
             family_costs = {device.family: amt}
             rows.append(_misc_row(desc, bill.due_date, amt, family_shares, family_costs))
     
+    # Validation: check that total allocated matches bill total
+    total_allocated = sum(row.amount for row in rows)
+    if abs(total_allocated - bill.total_due) > Decimal('0.01'):  # Allow for small rounding differences
+        print("🚨 WARNING: ALLOCATION MISMATCH DETECTED!")
+        print(f"   Bill total due: ${bill.total_due}")
+        print(f"   Total allocated: ${total_allocated}")
+        print(f"   Difference: ${bill.total_due - total_allocated}")
+        print("   This indicates missing charges or parsing errors in the bill.")
+        print("   Please review the bill parsing and allocation logic.")
+    
     return rows
 
 # -------------------- helpers --------------------

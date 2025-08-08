@@ -88,11 +88,13 @@ def patched_devices_and_adults(monkeypatch):
 
 @pytest.fixture()
 def oct_bill() -> BillTotals:
+    expected_total = (VOICE_SUBTOTAL + WEARABLE_SUBTOTAL + CONNECTED_SUBTOTAL + 
+                     NETFLIX + sum(EQUIPMENT.values()) + sum(USAGE.values()))
     return BillTotals(
         cycle_start=date(2024, 9, 4),  # not used in allocator assertions
         cycle_end=date(2024, 10, 24),
         due_date=date(2024, 10, 24),
-        total_due=Decimal("0.00"),  # allocator doesn’t use total_due
+        total_due=expected_total,  # Calculate correct total for validation
         voice_subtotal=VOICE_SUBTOTAL,
         wearable_subtotal=WEARABLE_SUBTOTAL,
         connected_subtotal=CONNECTED_SUBTOTAL,
@@ -182,3 +184,32 @@ def test_usage_allocation_oct(patched_devices_and_adults, oct_bill):
     rows = allocator.allocate(oct_bill)
     usage_totals = _sum_usage_costs(rows)
     assert usage_totals == EXPECTED_USAGE
+
+
+def test_allocation_total_validation(patched_devices_and_adults, oct_bill, capsys):
+    """Test that the allocator validates total allocated matches bill total."""
+    # October bill should balance correctly (no warning expected)
+    rows = allocator.allocate(oct_bill)
+    captured = capsys.readouterr()
+    assert "WARNING: ALLOCATION MISMATCH" not in captured.out
+    
+    # Test with a bill that has a mismatch
+    mismatched_bill = BillTotals(
+        cycle_start=date(2024, 10, 4),
+        cycle_end=date(2024, 11, 3),
+        due_date=date(2024, 10, 24),
+        total_due=Decimal("500.00"),  # Artificially high total
+        voice_subtotal=VOICE_SUBTOTAL,
+        wearable_subtotal=WEARABLE_SUBTOTAL,
+        connected_subtotal=CONNECTED_SUBTOTAL,
+        netflix_charge=NETFLIX,
+        equipments=EQUIPMENT,
+        usage=USAGE,
+    )
+    
+    rows = allocator.allocate(mismatched_bill)
+    captured = capsys.readouterr()
+    assert "🚨 WARNING: ALLOCATION MISMATCH DETECTED!" in captured.out
+    assert "Bill total due: $500.00" in captured.out
+    assert "Total allocated:" in captured.out
+    assert "Difference:" in captured.out

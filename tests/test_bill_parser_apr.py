@@ -108,3 +108,25 @@ def test_voice_line_count_sanity_apr(april_pdf):
     bill = bill_parser.parse_bill(april_pdf)
     per_line = Decimal("28.00")
     assert bill.voice_subtotal == per_line * 10
+
+
+# --------------------------------------------------------------------------- #
+# Total validation: subtotals should sum to total due
+# --------------------------------------------------------------------------- #
+def test_subtotals_vs_total_due_apr(april_pdf):
+    """
+    Validate that the sum of all parsed subtotals matches the total due.
+    This test will fail if there are missing charges or parsing errors.
+    """
+    bill = bill_parser.parse_bill(april_pdf)
+    
+    plans = bill.voice_subtotal + bill.wearable_subtotal + bill.connected_subtotal
+    equipment = sum(bill.equipments.values())
+    usage = sum(bill.usage.values())
+    services = bill.netflix_charge
+    
+    computed_total = plans + equipment + services + usage
+    
+    # This assertion will fail for April 2025 bill due to missing charges
+    # Expected to be $567.65 but computed total is only $485.93
+    assert computed_total == bill.total_due, f"Computed total {computed_total} != bill total {bill.total_due} (difference: {bill.total_due - computed_total})"
