@@ -6,11 +6,15 @@ summary-bill PDFs, it:
 
 1. Parses each bill and extracts the subtotals, equipment payments, Netflix,
    and one-time usage charges.
-2. Allocates every cost line to the correct family using explicit rules
+2. **Automatically detects line transfers** and other complex billing scenarios
+   to ensure accurate voice line counting and cost allocation.
+3. Allocates every cost line to the correct family using explicit rules
    (Voice, Wearables, Connected, Equipment, Netflix, Usage).
-3. Appends the new rows to the ledger CSV and inserts an AutoPay row so the
+4. **Validates allocation totals** against bill totals with detailed warnings
+   for any discrepancies or missing charges.
+5. Appends the new rows to the ledger CSV and inserts an AutoPay row so the
    running balance stays correct.
-4. Leaves reimbursement rows untouched so we can still track who has paid
+6. Leaves reimbursement rows untouched so we can still track who has paid
    Jonah back.
 
 ---
@@ -38,7 +42,7 @@ family_mobile_ledger/
 
 | Rule | Category | Allocation logic |
 |------|----------|------------------|
-| **A** | **Voice plan subtotal** | Divide the bill’s voice‑line subtotal by the count of **active, non‑“Removed”** voice lines. Charge each family the per‑line rate multiplied by how many voice lines they own that month. |
+| **A** | **Voice plan subtotal** | Divide the bill's voice‑line subtotal by the count of **billable voice lines** (excluding non-allocatable lines like "Old number" during transfers). Charge each family the per‑line rate multiplied by how many voice lines they own that month. System automatically detects line transfers and adjusts counts accordingly. |
 | **B** | **Wearable plan subtotal** | Pass through the exact monthly fee for each wearable line to its owning family. *(A future flag will let us pool or pro‑rate these.)* |
 | **C** | **Connected‑device / Mobile‑Internet plans** | Pass through the exact monthly fee to the owning family. |
 | **D** | **Equipment installments & promo credits** | For each device, sum **all** Equipment rows (positive installments plus negative promo credits) for that cycle; charge the resulting net amount to that family. |
@@ -66,6 +70,26 @@ python -m family_mobile_ledger.cli \
     /path/to/T-Mobile_Family_Expenses.csv \
     /path/to/SummaryBillFeb2025.pdf
 ```
+
+## 🚨 Advanced Features
+
+### Line Transfer Detection
+The system automatically handles complex scenarios where T-Mobile's billing includes non-allocatable lines:
+
+**Example:** March 2025 bill reported "11 VOICE LINES" but line 2409883906 was marked as "Old number" with null Plans column during a line transfer. The system:
+
+1. **Detects** the non-allocatable line by checking for null Plans columns in bill summary
+2. **Warns** with clear details about which lines are excluded and why
+3. **Allocates** based on 10 billable lines ($26.00/line) instead of 11 reported lines ($23.64/line)
+
+### Allocation Validation
+- **Total Matching**: Automatically validates that sum of all allocated costs equals bill total due
+- **Mismatch Warnings**: Displays prominent warnings with specific dollar differences when parsing misses charges
+- **Voice Line Reconciliation**: Compares extracted voice line counts with family device configuration
+
+### Error Handling
+- **Unknown Device Messages**: Clear, actionable error messages when devices appear on bills but aren't in family_config.yaml
+- **Configuration Guidance**: Step-by-step instructions for adding new devices with ready-to-copy YAML examples
 
 ## 🔧 To‑do
 
