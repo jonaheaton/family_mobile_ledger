@@ -2,42 +2,42 @@ families:
   JJ:
     adults: 2
     devices:
-      - number: "4102272625"
+      - number: "4102272625" #Jonah
         kind: voice
-      - number: "2012904373"
+      - number: "2012904373" #Janet
         kind: voice
   KS:
     adults: 2
     devices:
-      - number: "2405844111"
+      - number: "2405844111" #Seth
         kind: voice
-      - number: "4433266326"
+      - number: "4433266326" #Karen
         kind: voice
-      - number: "4437410790"
+      - number: "4437410790" 
         kind: voice
-      - number: "4129158801"
+      - number: "4129158801" #Helen
         kind: voice
-      - number: "2409885184"
+      - number: "2409885184" #Helen
         kind: voice  
       - number: "2409883906"
         kind: voice  
-      - number: "8573403847"
+      - number: "8573403847" #Helen
         kind: wearable
-      - number: "8575767313"
+      - number: "8575767313" #Seth
         kind: wearable
-      - number: "8574217942"
+      - number: "8574217942" #Seth
         kind: connected
   DJ:
     adults: 2
     devices:
-      - number: "3014528244"
+      - number: "3014528244" #Daniel
         kind: voice
   RE:
     adults: 2
     devices:
-      - number: "2022586292"
+      - number: "2022586292" #Rebecca
         kind: voice
-      - number: "9179125315"
+      - number: "9179125315" #Enrique
         kind: voice
-      - number: "3476366212"
+      - number: "3476366212" #Julia
         kind: wearable
