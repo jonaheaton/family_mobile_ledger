@@ -104,13 +104,63 @@ def _family(number: str, devices):
     for d in devices:
         if d.number.endswith(number[-4:]):   # crude; improve later
             return d.family
-    raise KeyError(f'Phone {number} not in config')
+    
+    # Create a clear, actionable error message
+    error_msg = f"""
+🚨 UNKNOWN DEVICE ERROR: Device {number} found on bill but not in family configuration!
+
+This device appears in equipment charges or usage charges on your bill, but is not 
+configured in your family_config.yaml file.
+
+TO FIX THIS:
+1. Add the device to family_mobile_ledger/data/family_config.yaml
+2. Determine which family member owns this device  
+3. Add an entry like:
+   
+   families:
+     [FAMILY_NAME]:
+       devices:
+         - number: "{number}"
+           kind: voice  # or "wearable" or "connected"
+
+CURRENT CONFIGURED DEVICES:
+{chr(10).join([f'  {d.family}: {d.number} ({d.kind})' for d in devices])}
+
+Without this configuration, the allocator cannot determine who should be 
+charged for this device's costs.
+"""
+    raise ValueError(error_msg)
 
 def _find_device(number: str, devices):
     for d in devices:
         if d.number.endswith(number[-4:]):   # crude; improve later
             return d
-    raise KeyError(f'Phone {number} not in config')
+    
+    # Create a clear, actionable error message
+    error_msg = f"""
+🚨 UNKNOWN DEVICE ERROR: Device {number} found on bill but not in family configuration!
+
+This device appears in equipment charges or usage charges on your bill, but is not 
+configured in your family_config.yaml file.
+
+TO FIX THIS:
+1. Add the device to family_mobile_ledger/data/family_config.yaml
+2. Determine which family member owns this device  
+3. Add an entry like:
+   
+   families:
+     [FAMILY_NAME]:
+       devices:
+         - number: "{number}"
+           kind: voice  # or "wearable" or "connected"
+
+CURRENT CONFIGURED DEVICES:
+{chr(10).join([f'  {d.family}: {d.number} ({d.kind})' for d in devices])}
+
+Without this configuration, the allocator cannot determine who should be 
+charged for this device's costs.
+"""
+    raise ValueError(error_msg)
 
 def _line_amount(_, subtotal, count):
     # Each wearable currently billed at same plan price
